@@ -18,38 +18,50 @@ app.use('/img', express.static('public/img'));
 app.engine('handlebars', exphbs({defaultLayout: 'main'}));
 app.set('view engine', 'handlebars');
 
-app.listen(PORT, function(req, res){
-  console.log('You are listening on port %s', PORT);
-});
+//Make sure to require models**
+var Note = require('./models/noteModel.js');
+var Article = require('./models/articleModel.js');
+
 
 //Express Routes
-app.get('/', function(req, res){
-  var request = require('request');
-  var cheerio = require('cheerio');
-  request('https://news.ycombinator.com', function (error, response, html) {
-  if (!error && response.statusCode == 200) {
+app.get("/", function(req, res){
+  request("https://news.ycombinator.com/", function (error, response, html) {
     var $ = cheerio.load(html);
-    $('span.comhead').each(function(i, element){
-      var a = $(this).prev();
-      var rank = a.parent().parent().text();
-      var title = a.text();
-      var url = a.attr('href');
-      var subtext = a.parent().parent().next().children('.subtext').children();
-      var points = $(subtext).eq(0).text();
-      var username = $(subtext).eq(1).text();
-      var comments = $(subtext).eq(2).text();
-      // Our parsed meta data object
-      var metadata = {
-        rank: parseInt(rank),
-        title: title,
-        url: url,
-        points: parseInt(points),
-        username: username,
-        comments: parseInt(comments)
-      };
-      console.log(metadata);
-      res.render('index');
+    $("td.title:nth-child(3)>a").each(function(i, element) {
+
+      var articleTitle = $(element).text();
+      var articleLink = $(element).attr('href');
+      // console.log(articleTitle);
+      // console.log(articleLink);
+      // Create New Instance
+      var insertedArticle = new Article({
+        title : articleTitle,
+        link: articleLink
+       });
+
+    // Save to Database
+      insertedArticle.save(function(err, dbArticle) {
+        if (err) {
+          console.log(err);
+        } else {
+          console.log(dbArticle);
+        }
+      });
     });
-  }
+    res.render('index');
+  });
 });
+
+
+app.get('/displayInfo', function(req, res) {
+  Article.find({}, function(err, articleData) {
+    if(err) {
+      throw err;
+    }
+    res.json(articleData);
+  });
+});
+
+app.listen(PORT, function(req, res){
+  console.log('You are listening on port %s', PORT);
 });
